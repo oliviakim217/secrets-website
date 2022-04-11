@@ -1,10 +1,9 @@
-//#region
 require("dotenv").config();
 const express = require("express");
 const ejs = require("ejs");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
-// #2
+// Level #2 
 // const encrypt = require("mongoose-encryption");
 const md5 = require("md5");
 
@@ -25,12 +24,11 @@ const userSchema = new mongoose.Schema ({
 
 
 
-// #2 Mongoose Encryption - Add the encrypt package as a plugin.
+// Level #2 Encryption With a Key - Add the encrypt package as a plugin.
 // userSchema.plugin(encrypt, { secret: process.env.KEY, encryptedFields: ["password"] }); 
 
 const User = mongoose.model("User", userSchema);
 
-//#endregion
 
 
 
