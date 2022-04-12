@@ -5,7 +5,11 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 // Level #2 
 // const encrypt = require("mongoose-encryption");
-const md5 = require("md5");
+// Level #3
+// const md5 = require("md5"); // For hashing
+// Level #4
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 const app = express();
 
@@ -21,11 +25,6 @@ const userSchema = new mongoose.Schema ({
     email: String,
     password: String
 });
-
-
-
-// Level #2 Encryption With a Key - Add the encrypt package as a plugin.
-// userSchema.plugin(encrypt, { secret: process.env.KEY, encryptedFields: ["password"] }); 
 
 const User = mongoose.model("User", userSchema);
 
@@ -46,16 +45,20 @@ app.get("/register", function(req, res) {
 });
 
 app.post("/register", function(req, res) {
-    const newUser = new User ({
-        email: req.body.username,
-        password: md5(req.body.password)
-    });
-    newUser.save(function(err) {
-        if (!err) {
-            res.render("secrets");
-        } else {
-            console.log(err);
-        }
+    // Generate salt and hash password. 
+    bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+        // Then store hash in DB.
+        const newUser = new User ({
+            email: req.body.username,
+            password: hash
+        });
+        newUser.save(function(err) {
+            if (!err) {
+                res.render("secrets");
+            } else {
+                console.log(err);
+            }
+        });
     });
 });
 
@@ -66,17 +69,16 @@ app.post("/login", function(req, res) {
         } else {
             console.log(foundUser);
             if (foundUser) { // check to see if there was a found user.
-                if (foundUser.password === md5(req.body.password)) {
-                    res.render("secrets");
-                }
+                // Compare the user inputted password with the hash
+                bcrypt.compare(req.body.password, foundUser.password, function(err, result) {
+                    if (result === true) {
+                        res.render("secrets");
+                    }
+                });
             } 
         }
     });
 });
-
-
-
-
 
 
 
