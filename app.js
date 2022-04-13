@@ -16,7 +16,9 @@ const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose");
 // Level #6
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const FacebookStrategy = require('passport-facebook').Strategy;
 const findOrCreate = require("mongoose-findorcreate");
+
 
 const app = express();
 
@@ -39,7 +41,8 @@ mongoose.connect("mongodb://localhost:27017/userDB");
 const userSchema = new mongoose.Schema ({
     email: String,
     password: String,
-    googleId: String
+    googleId: String,
+    facebookId: String
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -59,7 +62,7 @@ passport.deserializeUser(function(id, done) {
     });
 });
 
-// Set up Google Strategy to help Google recognize the app which is set up in the Google dashboard.)
+// Set up Google Strategy to help Google recognize the app which is set up in the Google dashboard.
 passport.use(new GoogleStrategy({
     clientID: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
@@ -74,12 +77,27 @@ passport.use(new GoogleStrategy({
 ));
 
 
+// Set up Facebook Strategy
+passport.use(new FacebookStrategy({
+    clientID: process.env.APP_ID,
+    clientSecret: process.env.APP_SECRET,
+    callbackURL: "http://localhost:3000/auth/facebook/secrets"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    console.log(profile);
+    User.findOrCreate({ facebookId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
+
+
 // Home Route
 app.get("/", function(req, res) {
     res.render("home");
 });
 
-// Google Log In Route
+// Google Log In & Register Route
 app.get("/auth/google", 
     // Use passport to authenticate users using the Google Strategy
     passport.authenticate("google", { scope: ['profile'] }) // Request for user's profile (id & email) to Google
@@ -88,11 +106,23 @@ app.get("/auth/google",
 // Route where Google will sends users to after authentication (Path set up in Google)
 app.get("/auth/google/secrets", 
     // Authenticate users locally and save their login session
-  passport.authenticate('google', { failureRedirect: '/login' }),
+  passport.authenticate("google", { failureRedirect: "/login" }),
   function(req, res) {
     // Successful authentication, redirect to secrets.
     res.redirect("/secrets");
   });
+
+// Facebook Log In & Register Route
+app.get("/auth/facebook",
+  passport.authenticate("facebook"));
+
+app.get("/auth/facebook/secrets",
+  passport.authenticate("facebook", { failureRedirect: "/login" }),
+  function(req, res) {
+    // Successful authentication, redirect to secrets.
+    res.redirect("/secrets");
+  });
+
 
 // Log In Page 
 app.get("/login", function(req, res) {
