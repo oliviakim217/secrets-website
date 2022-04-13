@@ -198,8 +198,7 @@ app.post("/login", function(req, res) {
 
 // Submit A Secret POST Route
 app.post("/submit", function(req, res) {
-    // req.body.secret
-    
+    // Once the user is authenticated and their session gets saved, their user details are saved to req.user  
     User.findById({_id: req.user.id}, function(err, foundUser) {
         if (err) {
             console.log(err);
