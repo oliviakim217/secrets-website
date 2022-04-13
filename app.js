@@ -14,6 +14,9 @@ const mongoose = require("mongoose");
 const session = require("express-session");
 const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose");
+// Level #6
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const findOrCreate = require("mongoose-findorcreate");
 
 const app = express();
 
@@ -35,34 +38,76 @@ mongoose.connect("mongodb://localhost:27017/userDB");
 
 const userSchema = new mongoose.Schema ({
     email: String,
-    password: String
+    password: String,
+    googleId: String
 });
 
 userSchema.plugin(passportLocalMongoose);
+userSchema.plugin(findOrCreate);
 
 const User = mongoose.model("User", userSchema);
 
 passport.use(User.createStrategy());
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+
+passport.serializeUser(function(user, done) {
+    done(null, user.id);
+}); 
+
+passport.deserializeUser(function(id, done) {
+    User.findById(id, function(err, user) {
+        done(err, user);
+    });
+});
+
+// Set up Google Strategy to help Google recognize the app which is set up in the Google dashboard.)
+passport.use(new GoogleStrategy({
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    callbackURL: "http://localhost:3000/auth/google/secrets"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    console.log(profile);
+    User.findOrCreate({ googleId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
 
 
-
-// Routes
+// Home Route
 app.get("/", function(req, res) {
     res.render("home");
 });
 
+// Google Log In Route
+app.get("/auth/google", 
+    // Use passport to authenticate users using the Google Strategy
+    passport.authenticate("google", { scope: ['profile'] }) // Request for user's profile (id & email) to Google
+);
+
+// Route where Google will sends users to after authentication (Path set up in Google)
+app.get("/auth/google/secrets", 
+    // Authenticate users locally and save their login session
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect to secrets.
+    res.redirect("/secrets");
+  });
+
+// Log In Page 
 app.get("/login", function(req, res) {
     res.render("login");
 });
 
+// Register Page
 app.get("/register", function(req, res) {
     res.render("register");
 });
 
+// Secrets Page Route
 app.get("/secrets", function(req, res) {
-    // If a user is already logged in, render the secrets page. If not, redirect them to the login page.
+    // If a user is already logged in, render the secrets page. 
+    // If not, redirect them to the login page.
     if (req.isAuthenticated()) {
         res.render("secrets");
     } else {
@@ -70,11 +115,13 @@ app.get("/secrets", function(req, res) {
     }
 });
 
+// Log Out Route
 app.get("/logout", function(req, res) {
     req.logout();
     res.redirect("/");
 });
 
+// Register with Email Route
 app.post("/register", function(req, res) {
     // from the passport-local-mongoose package
     User.register({username: req.body.username}, req.body.password, function(err, user) {
@@ -89,6 +136,7 @@ app.post("/register", function(req, res) {
     })
 });
 
+// Log In with Email Route
 app.post("/login", function(req, res) {
     const user = new User({
         username: req.body.username,
